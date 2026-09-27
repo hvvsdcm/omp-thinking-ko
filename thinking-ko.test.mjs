@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-	softenEndings,
-	cleanTranslation,
 	timeoutFor,
 	hedged,
 	Slots,
@@ -23,38 +21,6 @@ import {
 } from "./thinking-ko.ts";
 import thinkingKo from "./thinking-ko.ts";
 
-test("softenEndings: 사양 예시", () => {
-	assert.equal(softenEndings("오류를 찾았어. 고쳐볼게."), "오류를 찾앗어. 고쳐볼게.");
-	assert.equal(softenEndings("파일을 썼다"), "파일을 썻다");
-	assert.equal(softenEndings("있는 파일"), "있는 파일");
-});
-
-test("softenEndings: 여러 종결·연결 어미", () => {
-	assert.equal(softenEndings("거기 있어"), "거기 잇어");
-	assert.equal(softenEndings("벌써 했어!!"), "벌써 햇어!!");
-	assert.equal(softenEndings("빌드 됐네"), "빌드 됏네");
-	assert.equal(softenEndings("고쳤지만 또 터졌거든"), "고쳣지만 또 터졋거든");
-	assert.equal(softenEndings("봤는데 없었음"), "봣는데 없엇음");
-	assert.equal(softenEndings("하겠다고"), "하겠다고", "어미 뒤에 더 붙으면 건드리지 않는다");
-	assert.equal(softenEndings("해봐야겠다."), "해봐야겟다.");
-	assert.equal(softenEndings("했었어"), "햇엇어");
-	assert.equal(softenEndings("있고 없고"), "잇고 없고");
-});
-
-test("softenEndings: 어절 중간과 비한글은 그대로", () => {
-	assert.equal(softenEndings("있으면 쓰자"), "있으면 쓰자");
-	assert.equal(softenEndings("settings.json 고쳤어"), "settings.json 고쳣어");
-	assert.equal(softenEndings("hello world"), "hello world");
-	assert.equal(softenEndings("다"), "다");
-	assert.equal(softenEndings("아!! 시발 오류를 찾앗어.. 고쳐볼게."), "아!! 시발 오류를 찾앗어.. 고쳐볼게.");
-});
-
-test("cleanTranslation", () => {
-	assert.equal(cleanTranslation("```\n버그 찾앗어\n```"), "버그 찾앗어");
-	assert.equal(cleanTranslation("번역: 버그 찾앗어"), "버그 찾앗어");
-	assert.equal(cleanTranslation("\"버그 찾앗어\""), "버그 찾앗어");
-	assert.equal(cleanTranslation("  **제목**\n\n본문  "), "**제목**\n\n본문");
-});
 
 test("timeoutFor / clip", () => {
 	assert.equal(timeoutFor("a".repeat(10)), TIMEOUT_MS);
@@ -181,19 +147,6 @@ test("wrapDisplay: 줄바꿈 유지, 긴 단어는 글자 단위로 자름", () 
 
 // ---- 리뷰 지적 재현 테스트 -------------------------------------------------------
 
-test("softenEndings: 파일명·식별자 조각은 그대로, 문장 끝 부호 뒤는 치환", () => {
-	assert.equal(softenEndings("있어_flag"), "있어_flag");
-	assert.equal(softenEndings("있어.txt"), "있어.txt");
-	assert.equal(softenEndings("path/있어/x"), "path/있어/x");
-	assert.equal(softenEndings("있어-flag"), "있어-flag");
-	assert.equal(softenEndings("있어abc"), "있어abc");
-	assert.equal(softenEndings("찾았어."), "찾앗어.");
-	assert.equal(softenEndings("찾았어.."), "찾앗어..");
-	assert.equal(softenEndings("찾았어!!"), "찾앗어!!");
-	assert.equal(softenEndings("(파일 썼다)"), "(파일 썻다)");
-	assert.equal(softenEndings("**고쳤어**"), "**고쳣어**");
-	assert.equal(softenEndings("다 됐어\n다음"), "다 됏어\n다음");
-});
 
 test("redact: 토큰류 가림", () => {
 	const line = `err="Authorization: Bearer abc.def-123 ya29.a0AfB_x-y sk-live_12345 AIzaSyD-xyz ${"q".repeat(40)} ok"`;
@@ -523,12 +476,13 @@ const T3 = "Both fixes are in, let me run the script again to confirm.";
 test("핸들러: thinking 3개가 각자 자기 블록 밑에 번역되고 세션 캐시에 남는다", async () => {
 	const h = fakeHost();
 	const logs = [];
+	const translations = new Map([[T1, "첫 번째 번역"], [T2, "두 번째 번역"], [T3, "세 번째 번역"]]);
 	thinkingKo(h.pi, {
 		log: (l) => logs.push(l),
 		prepare: async () => ({}),
 		call: async (_p, source) => {
 			await delay(source === T1 ? 120 : 10);
-			return { raw: `번역(${source.slice(0, 4)}) 찾았어`, provider: "google-antigravity", model: "gemini-3.8-flash" };
+			return { raw: translations.get(source), provider: "google-antigravity", model: "gemini-3.8-flash" };
 		},
 		hedgeAfterMs: 5000,
 		timeoutMs: () => 2000,
@@ -539,14 +493,14 @@ test("핸들러: thinking 3개가 각자 자기 블록 밑에 번역되고 세�
 	h.thinkingEnd(2, T3);
 	assert.equal(h.draw(T1), " 생각 옮기는 중..");
 	await delay(250);
-	assert.equal(h.draw(T1), " 번역(This) 찾앗어");
-	assert.equal(h.draw(T2), " 번역(I fo) 찾앗어");
-	assert.equal(h.draw(T3), " 번역(Both) 찾앗어");
+	assert.equal(h.draw(T1), " 첫 번째 번역");
+	assert.equal(h.draw(T2), " 두 번째 번역");
+	assert.equal(h.draw(T3), " 세 번째 번역");
 	assert.ok(h.renderRequests() >= 3);
 	assert.equal(h.appended.length, 3);
 	assert.deepEqual(
 		h.appended.map((e) => e.data.ko),
-		["번역(This) 찾앗어", "번역(I fo) 찾앗어", "번역(Both) 찾앗어"],
+		["첫 번째 번역", "두 번째 번역", "세 번째 번역"],
 	);
 	assert.ok(h.appended.every((e) => e.customType === ENTRY_TYPE && e.data.v === 3 && e.data.kind === "thinking" && /^s:[0-9a-f]{16}$/.test(e.data.id) && e.data.ci === 0));
 	assert.equal(logs.filter((l) => /^ok kind=thinking try=1 provider=google-antigravity model=gemini-3\.8-flash/.test(l)).length, 3);
@@ -648,25 +602,6 @@ test("재리뷰 P1: abort를 무시하는 요청 2개를 reset해도 끝나기 �
 	assert.equal(slots.used, 0);
 });
 
-test("재리뷰 P2: 어절 앞부분이 한글이 아니면 불변", () => {
-	for (const s of ["foo있어", "config.있어", "C:\\있어", "있어_flag", "있어.txt", "path/있어/x", "a:있었다", "x.썼다."]) {
-		assert.equal(softenEndings(s), s, s);
-	}
-	assert.equal(softenEndings("찾았어."), "찾앗어.");
-	assert.equal(softenEndings("버그 찾았어.."), "버그 찾앗어..");
-	assert.equal(softenEndings("됐잖아"), "됏잖아");
-	assert.equal(softenEndings("\"찾았어\""), "\"찾앗어\"");
-	assert.equal(softenEndings("찾았어.고쳤어."), "찾앗어.고쳣어.");
-});
-
-test("재리뷰 P2: 이모지·여는 괄호·줄바꿈 뒤도 치환, 확장자는 불변", () => {
-	assert.equal(softenEndings("찾았어🙂"), "찾앗어🙂");
-	assert.equal(softenEndings("찾았어(확인)"), "찾앗어(확인)");
-	assert.equal(softenEndings("찾았어\n"), "찾앗어\n");
-	assert.equal(softenEndings("찾았어「다음」"), "찾앗어「다음」");
-	assert.equal(softenEndings("있어.txt"), "있어.txt");
-	assert.equal(softenEndings("있어.md 파일"), "있어.md 파일");
-});
 
 // ---- 4차 리뷰 재현 테스트 --------------------------------------------------------
 
@@ -923,7 +858,7 @@ test("화면 패치: 컴포넌트 클래스를 찾아 감싸고, 생각·답변�
 		call: async (_p, source, _s, kind) => {
 			await delay(20);
 			return {
-				raw: kind === "answer" ? `답: ${source} 고쳤다.` : `생각: ${source} 찾았어`,
+				raw: kind === "answer" ? "답변 번역" : "생각 번역",
 				provider: "google-antigravity",
 				model: "gemini-3.8-flash",
 			};
@@ -945,7 +880,7 @@ test("화면 패치: 컴포넌트 클래스를 찾아 감싸고, 생각·답변�
 	h.handlers.message_end({ message }, h.ctx);
 	assert.equal(comp.text(), `T:${PENDING_THINKING} | A:Done\n\n${PENDING_ANSWER}`);
 	await delay(120);
-	assert.equal(comp.text(), "T:생각: I found it 찾앗어 | A:답: Done 고쳤다."); // 답변은 후처리 없음
+	assert.equal(comp.text(), "T:생각 번역 | A:답변 번역");
 	// 원본 메시지는 그대로(모델 문맥·세션 저장용)
 	assert.equal(message.content[0].thinking, "I found it");
 	assert.equal(message.content[1].text, "Done");
@@ -1067,7 +1002,7 @@ test("재시도: 첫 번역이 실패해도 다음 성공 직후 재시도해서
 				flakyFailures++;
 				throw new Error("timeout 12000ms");
 			}
-			return { raw: `번역: ${source} 됐어`, provider: "google-antigravity", model: "gemini-3.8-flash" };
+			return { raw: source === "flaky thought" ? "재시도 성공" : "일반 성공", provider: "google-antigravity", model: "gemini-3.8-flash" };
 		},
 		retryDelayMs: 60_000,
 		timeoutMs: () => 2000,
@@ -1083,8 +1018,8 @@ test("재시도: 첫 번역이 실패해도 다음 성공 직후 재시도해서
 	const ok = { role: "assistant", timestamp: 2, content: [{ type: "thinking", thinking: "steady thought", thinkingSignature: "SS" }] };
 	h.handlers.message_update({ message: ok, assistantMessageEvent: { type: "thinking_end", contentIndex: 0, content: "steady thought" } }, h.ctx);
 	await delay(80);
-	assert.equal(comp.text(), "T:flaky thought 됏어");
-	assert.equal(h.appended.filter((e) => e.data.ko === "flaky thought 됏어").length, 1);
+	assert.equal(comp.text(), "T:재시도 성공");
+	assert.equal(h.appended.filter((e) => e.data.ko === "재시도 성공").length, 1);
 	assert.ok(logs.some((l) => l.startsWith("retry start kind=thinking why=after-success")));
 	assert.ok(logs.some((l) => l.startsWith("ok kind=thinking try=2")));
 	setDisplayHook(undefined);
@@ -1671,7 +1606,7 @@ test("cleanAnswer: fenced code is preserved and a translation heading is removed
 test("답변 경로: 번역 결과를 후처리 없이(코드 영역 포함 바이트 그대로) 표시·캐시한다", async () => {
 	setDisplayHook(undefined);
 	const h = patchHost();
-	// 모델이 ㅆ을 남긴 경우도 그대로 둔다(생각 경로와 달리 ㅆ→ㅅ 후처리 없음)
+	// 모델이 ㅆ을 남긴 경우도 그대로 둔다(생각·답변 모두 강제 치환 없음).
 	const raw = [
 		"다 고쳤어! 됐어~",
 		"",
@@ -1721,3 +1656,40 @@ test("14차 P2: cleanAnswer는 들여쓴 줄·코드의 'Translation:'을 머리
 	assert.equal(cleanAnswer("\n\n번역: 다 됏어!\n\n```\nx\n```"), "다 됏어!\n\n```\nx\n```");
 	assert.equal(cleanAnswer("번역:"), "");
 });
+
+for (const [name, raw] of [
+	["코드펜스와 한국어 문자열", '```js\nconst message = "저장했어";\n```\n이 코드는 message 변수에 문자열 넣어둔 거야.'],
+	["들여쓰기와 중첩 마크다운", '    msg = "했어"\n\n`있었어`는 그대로 둿어.\n\n> ```py\n> msg = "됐어"\n> ```\n\n- ~~~text\n  있었어\n  ~~~\n\n<pre>했어</pre>'],
+]) {
+	test(`생각 코드 보존 회귀: ${name}`, async () => {
+		setDisplayHook(undefined);
+		const h = patchHost();
+		let cached;
+		const cacheWritten = new Promise((resolve) => { cached = resolve; });
+		h.pi.appendEntry = (_type, data) => cached(data);
+		thinkingKo(h.pi, {
+			log: () => {},
+			prepare: async () => ({}),
+			call: async () => ({ raw, provider: "google-antigravity", model: "gemini-3.8-flash" }),
+		});
+		h.handlers.session_start({}, h.ctx);
+		const message = {
+			role: "assistant",
+			timestamp: 112,
+			content: [{ type: "thinking", thinking: "Explain this code.", thinkingSignature: "CODE-112" }],
+		};
+		const comp = h.addComponent(message);
+		h.handlers.message_update({
+			message,
+			assistantMessageEvent: { type: "thinking_end", contentIndex: 0, content: "Explain this code." },
+		}, h.ctx);
+		try {
+			const entry = await cacheWritten;
+			assert.equal(comp.text(), `T:${raw}`);
+			assert.equal(entry.ko, raw);
+		} finally {
+			h.handlers.session_shutdown({}, h.ctx);
+			setDisplayHook(undefined);
+		}
+	});
+}

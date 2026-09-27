@@ -1,5 +1,5 @@
 // thinking-ko: OMP 화면에 뜨는 thinking 블록과 답변(text 블록)을 Gemini(google-antigravity)로
-// 번역해 원문 대신 그린다. 생각·답변 모두 반말·구어체(ㅆ→ㅅ). 답변은 코드·마크다운 구조를 지킨다.
+// 번역해 원문 대신 그린다. 생각·답변 모두 반말·구어체(ㅆ→ㅅ)는 프롬프트로 맞추고 코드·마크다운을 보존한다.
 //
 // 표시 방식: OMP 확장 API에는 본문을 바꿔 그리는 훅이 없어서, 위젯 팩토리로 얻은 TUI 루트에서
 // 어시스턴트 메시지 컴포넌트 클래스를 찾아 updateContent를 감싸 표시용 사본만 번역문으로 바꾼다
@@ -111,7 +111,7 @@ export const FEW_SHOT: ReadonlyArray<{ en: string; ko: string }> = [
 /**
  * 답변(text 블록)용 번역 프롬프트. 말투 규칙은 생각 프롬프트와 같은 TONE_RULES를 그대로 쓰고, 예시도 생각 예시를
  * 그대로 앞에 둔다. 답변은 사용자가 읽는 결과물이라 코드·경로·마크다운 구조를 지키고 내용은 빠짐없이 옮기는 규칙만
- * 더 둔다. 답변에는 ㅆ→ㅅ 후처리를 하지 않는다(코드 영역을 확실히 가려낼 수 없어서). 그래서 ㅆ→ㅅ도 프롬프트로만 맞춘다.
+ * 더 둔다. 생각·답변 모두 코드 보호를 위해 ㅆ→ㅅ 후처리는 하지 않고 프롬프트로만 맞춘다.
  */
 export const ANSWER_SYSTEM_PROMPT = [
 	"너는 코딩 에이전트가 사용자에게 보내는 답변을 한국어 혼잣말 말투로 옮기는 번역기야. 말투는 에이전트가 속으로 하는 생각을 옮길 때와 똑같이 해.",
@@ -136,92 +136,6 @@ export const ANSWER_FEW_SHOT: ReadonlyArray<{ en: string; ko: string }> = [
 export type TranslationKind = "thinking" | "answer";
 
 // ---- 순수 함수 ----------------------------------------------------------------
-const HANGUL_BASE = 0xac00;
-const HANGUL_LAST = 0xd7a3;
-const JONG_SSANGSIOT = 20; // ㅆ
-const JONG_SIOT = 19; // ㅅ
-/** 종결·연결 어미. 긴 것부터 검사한다. */
-const ENDINGS = ["는데", "지만", "거든", "잖아", "어", "다", "네", "지", "고", "나", "음"];
-
-function isHangulSyllable(ch: string): boolean {
-	const c = ch.codePointAt(0) ?? 0;
-	return c >= HANGUL_BASE && c <= HANGUL_LAST;
-}
-function hasSsangSiot(ch: string): boolean {
-	if (!isHangulSyllable(ch)) return false;
-	return (ch.codePointAt(0)! - HANGUL_BASE) % 28 === JONG_SSANGSIOT;
-}
-function toSiot(ch: string): string {
-	return String.fromCodePoint(ch.codePointAt(0)! - (JONG_SSANGSIOT - JONG_SIOT));
-}
-
-/** 종결어미 뒤에 와도 되는 문장부호(닫는·여는 괄호, 따옴표, 마크다운 굵게 포함). */
-const ENDING_FOLLOWERS = new Set([
-	".", ",", "!", "?", "…", "~", ":", ";", "*",
-	")", "]", "}", "\"", "'", "”", "’", "」", "』",
-	"(", "[", "{", "「", "『", "“", "‘", "<",
-]);
-/** 어절 맨 앞에 붙어도 되는 여는 부호(이것만 걷어 내고 나머지는 한글이어야 한다). */
-const LEADING_OPENERS = /^[(\[{「『“‘"'<*~]*/;
-const EXT_PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
-const HANGUL_RUN = /^[\uac00-\ud7a3]+/;
-
-/** rest(어미 바로 뒤 문자열)의 첫 글자가 문장 경계인가. */
-function isSentenceBoundary(rest: string): boolean {
-	if (rest === "") return true;
-	const next = String.fromCodePoint(rest.codePointAt(0)!);
-	if (/\s/.test(next) || EXT_PICTOGRAPHIC.test(next)) return true;
-	if (!ENDING_FOLLOWERS.has(next)) return false;
-	// "있어.txt"처럼 마침표 뒤에 영숫자가 붙으면 파일명·식별자로 본다.
-	if (next === "." && /[A-Za-z0-9_]/.test(rest[1] ?? "")) return false;
-	return true;
-}
-
-function softenWord(core: string): string {
-	const ending = ENDINGS.find((e) => core.length > e.length && core.endsWith(e));
-	if (!ending) return core;
-	const chars = Array.from(core);
-	let i = chars.length - ending.length - 1;
-	if (!hasSsangSiot(chars[i]!)) return core;
-	while (i >= 0 && hasSsangSiot(chars[i]!)) {
-		chars[i] = toSiot(chars[i]!);
-		i--;
-	}
-	return chars.join("");
-}
-
-/** 공백 없는 한 덩어리를 처리한다. 문장부호로 끊긴 뒷부분은 새 어절로 다시 본다. */
-function softenToken(token: string): string {
-	const lead = token.match(LEADING_OPENERS)![0];
-	const body = token.slice(lead.length);
-	const core = body.match(HANGUL_RUN)?.[0];
-	// 어절 시작(여는 부호 제외)부터 한글이 아니면(foo있어, config.있어, C:\있어) 건드리지 않는다.
-	if (!core) return token;
-	const rest = body.slice(core.length);
-	if (!isSentenceBoundary(rest)) return token; // 있어_flag, 있어.txt, path/있어/x
-	const punct = rest.match(/^[^\uac00-\ud7a3A-Za-z0-9_\\/]*/)![0];
-	const tail = rest.slice(punct.length);
-	return lead + softenWord(core) + punct + (tail ? softenToken(tail) : "");
-}
-
-/**
- * 문장 끝의 "ㅆ받침 음절 + 어미"(찾았어, 썼다, 있지만, 됐잖아 ...)이면 그 ㅆ받침을 ㅅ으로 바꾼다.
- * 어미 바로 앞에 이어진 ㅆ받침 음절은 모두 바꾼다(했었어 → 햇엇어).
- * 어절(공백 단위)에서 여는 부호를 뺀 앞부분이 한글로만 이뤄지고, 어미 뒤가 문장 경계일 때만 바꾼다.
- * 어절 중간(있는, 있으면)이나 파일명·식별자 조각(foo있어, 있어_flag, 있어.txt)은 그대로 둔다.
- */
-export function softenEndings(text: string): string {
-	return text.replace(/\S+/g, (token) => softenToken(token));
-}
-
-/** 모델 출력에서 앞뒤 코드펜스·따옴표·"번역:" 머리말 같은 군더더기를 떼어 낸다. */
-export function cleanTranslation(raw: string): string {
-	let t = raw.trim();
-	t = t.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/, "").trim();
-	t = t.replace(/^(번역|Translation)\s*[:：]\s*/i, "");
-	if (/^["“][^"“”]*["”]$/.test(t)) t = t.slice(1, -1).trim();
-	return t;
-}
 
 /** 블록 길이에 따른 타임아웃. 1000자까지는 TIMEOUT_MS, 그 뒤로 1000자마다 추가. */
 export function timeoutFor(text: string): number {
@@ -1306,7 +1220,7 @@ const ANSWER_HEADER_LINE = /^(번역|Translation)[ \t]*[:：][ \t]*$/i;
 const ANSWER_HEADER_BEFORE_HANGUL = /^(번역|Translation)[ \t]*[:：][ \t]+(?=[가-힣])/i;
 
 /**
- * 답변 번역 결과 정리: 앞뒤 빈 줄을 떼고, 모델이 붙인 "번역:" 머리말은 확실할 때만 뗀다.
+ * 생각·답변 번역 결과 정리: 앞뒤 빈 줄을 떼고, 모델이 붙인 "번역:" 머리말은 확실할 때만 뗀다.
  * - 들여쓰기 없는 첫 줄이 머리말뿐이면("번역:") 그 줄을 뗀다.
  * - 들여쓰기 없는 첫 줄이 "번역: " 뒤에 한글로 이어지면 그 접두만 뗀다.
  * 첫 줄이 공백·탭으로 시작하거나 펜스이거나, 머리말 뒤가 한글이 아니면(`Translation: string;` 같은 코드)
@@ -1479,8 +1393,8 @@ export default function thinkingKo(pi: ExtensionAPI, deps: ThinkingKoDeps = {}):
 				const { value, attempt } = await hedged((s) => call(prepared, source, s, kind), hedgeAfter, pools[kind], dl);
 				return { reply: value, attempt };
 			});
-			// 답변은 후처리 없이 정리만 한다(말투·ㅆ→ㅅ은 프롬프트로). 코드·경로를 후처리가 건드릴 위험을 없애려는 것이다.
-			const text = kind === "answer" ? cleanAnswer(reply.raw) : softenEndings(cleanTranslation(reply.raw));
+			// 생각·답변 모두 코드·마크다운을 보존한다. 말투·ㅆ→ㅅ은 공통 프롬프트에서만 맞춘다.
+			const text = cleanAnswer(reply.raw);
 			if (!text) throw new Error("empty translation");
 			log(
 				`ok kind=${kind} try=${job?.attempt ?? 1} provider=${reply.provider} model=${reply.model} ms=${now() - started} attempt=${attempt} in=${source.length} out=${text.length} ko=${JSON.stringify(clip(text, LOG_KO_CHARS))}`,

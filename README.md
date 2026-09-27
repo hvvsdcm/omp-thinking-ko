@@ -11,6 +11,7 @@ OMP에 표시되는 영어 생각과 답변을 한국어로 옮기는 비공식 
 - 영어 생각을 한국어 혼잣말처럼 표시합니다. 아직 생성 중이면 `생각 중..`, 번역 대기 중이면 `생각 옮기는 중..`으로 보입니다.
 - **최종 답변도 번역하거나 말투를 바꿉니다.** 생각 전용 확장이 아닙니다.
 - 이미 한국어인 문장도 반말·구어체로 바꾸며, `했어 → 햇어`, `있어 → 잇어` 같은 말투를 사용합니다. 프롬프트에 가벼운 욕설 허용 규칙이 있습니다. 업무용 정중체 번역기가 아닙니다.
+- **v1.0.1부터 생각·답변 모두 말투를 프롬프트로만 맞춥니다.** 코드 문자열까지 바꾸던 강제 `ㅆ→ㅅ` 치환과 코드펜스 제거는 하지 않습니다. 모델이 간혹 `했어`를 남겨도 코드 보호를 위해 그대로 표시합니다.
 - 번역 결과를 세션에 캐시해 같은 세션을 재개할 때 재사용합니다. 번역 캐시는 모델 문맥에 넣지 않습니다.
 - 타임아웃이나 번역 실패 후 한 번 재시도하고, 최종 실패 시 원문을 표시합니다.
 - Claude 전용 필터는 없습니다. OMP에서 해당 thinking/text 이벤트를 내보내는 다른 모델의 메시지에도 적용될 수 있습니다.
@@ -36,7 +37,7 @@ OMP에 표시되는 영어 생각과 답변을 한국어로 옮기는 비공식 
 
 관리자 권한, Git, npm, Bun을 별도로 설치하지 않아도 됩니다. OMP 실행 파일은 필요합니다.
 
-1. [v1.0.0 릴리스](https://github.com/hvvsdcm/omp-thinking-ko/releases/tag/v1.0.0)에서 `thinking-ko.ts`를 다운로드합니다. 또는 소스 ZIP을 내려받아 압축을 풉니다.
+1. [v1.0.1 릴리스](https://github.com/hvvsdcm/omp-thinking-ko/releases/tag/v1.0.1)에서 `thinking-ko.ts`를 다운로드합니다. 또는 소스 ZIP을 내려받아 압축을 풉니다.
 2. 다운로드한 `thinking-ko.ts`가 있는 폴더에서 아래 명령을 실행합니다. **기존 파일이 있으면 덮어쓰지 않고 중단**합니다. 업데이트하려면 기존 파일을 extensions 폴더 밖에 먼저 백업하세요.
 
 ### Windows PowerShell
@@ -79,7 +80,7 @@ enabledModels:
 Git 소스 설치를 지원하는 OMP와 설치에 필요한 Bun 환경이 준비돼 있다면:
 
 ```sh
-omp plugin install github:hvvsdcm/omp-thinking-ko#v1.0.0
+omp plugin install github:hvvsdcm/omp-thinking-ko#v1.0.1
 ```
 
 로그인과 `hideThinkingBlock`/모델 설정은 파일 복사 방식과 같습니다. **파일 복사 설치와 플러그인 설치를 동시에 사용하지 마세요.** 중복 실행으로 번역 요청이 늘어날 수 있습니다. 로컬 `plugin link`는 Windows에서 심볼릭 링크 권한이 필요할 수 있습니다.
@@ -89,6 +90,54 @@ omp plugin install github:hvvsdcm/omp-thinking-ko#v1.0.0
 ```sh
 omp plugin uninstall omp-thinking-ko
 ```
+
+## 업데이트 — 기존 사용자
+
+먼저 새 릴리스의 `thinking-ko.ts`를 다운로드하고 OMP를 종료합니다. **개인 설정·인증 파일을 바꿀 필요는 없습니다.** 현재 사용 중인 설치 방식 하나만 업데이트하세요.
+
+### 파일 복사 설치
+
+다운로드한 새 `thinking-ko.ts`가 있는 폴더에서 실행합니다. 기존 확장은 `extensions` 바깥의 `backups`에 복사한 뒤 교체합니다.
+
+Windows PowerShell (기본 프로필):
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$agent = Join-Path $HOME '.omp/agent'
+$dest = Join-Path $agent 'extensions/thinking-ko.ts'
+$backup = Join-Path $agent 'backups'
+New-Item -ItemType Directory -Force $backup | Out-Null
+if (Test-Path $dest) {
+  Copy-Item -LiteralPath $dest -Destination (Join-Path $backup ("thinking-ko-" + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '.ts'))
+}
+Copy-Item -LiteralPath ./thinking-ko.ts -Destination $dest -Force
+```
+
+macOS / Linux (기본 프로필):
+
+```sh
+(
+  set -e
+  agent="$HOME/.omp/agent"
+  backup="$(mktemp -d "$agent/thinking-ko-backup.XXXXXX")"
+  if [ -f "$agent/extensions/thinking-ko.ts" ]; then
+    cp "$agent/extensions/thinking-ko.ts" "$backup/thinking-ko.ts"
+  fi
+  cp ./thinking-ko.ts "$agent/extensions/thinking-ko.ts"
+)
+```
+
+이후 OMP를 다시 실행합니다. 프로필/사용자 지정 경로는 위 설치 절의 경로 안내에 맞춰 바꾸세요.
+
+### 플러그인 설치
+
+아래 명령으로 새 버전을 설치한 뒤 OMP를 재시작합니다.
+
+```sh
+omp plugin install github:hvvsdcm/omp-thinking-ko#v1.0.1
+```
+
+**기존 번역 캐시:** v1.0.0에서 이미 번역해 저장한 메시지는 다시 번역하지 않습니다. 그 메시지에 있던 표시 오류도 자동 복구되지 않습니다. 새 대화의 새 메시지로 수정 여부를 확인하세요. 과거 원문이 필요하면 확장을 끄고 해당 세션을 재개하세요.
 
 ## 끄기와 제거
 
@@ -142,6 +191,8 @@ npm test
 ```
 
 테스트는 큐 순서·동시 요청 제한·타임아웃·재시도·캐시·표시용 사본·스크롤백 재발행을 검사합니다. 모델 호출과 TUI는 테스트용 호스트로 대체되므로 실제 Google 요청, 번역 품질, 실터미널 호환성까지 검증하는 것은 아닙니다. CI에 계정이나 API 키를 넣지 마세요.
+
+v1.0.1 배포 전에는 별도로 실제 Gemini 시험 문장 8개(생각 4개·답변 4개)를 번역해 표시용 변환 함수까지 확인했습니다. 코드펜스·한국어 코드 문자열·지정 명령·URL·숫자와 원본 메시지가 보존됐고, 표본에서 기존 반말 말투도 확인했습니다. 이는 모든 입력의 번역 정확도나 모든 터미널에서의 시각 검증을 보장하는 결과는 아닙니다.
 
 ## 라이선스와 출처
 
