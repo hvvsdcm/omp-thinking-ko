@@ -1,0 +1,6 @@
+# Merge these settings into your OMP config; do not replace your whole config.
+# If enabledModels already exists, append the Gemini entry to that list.
+# Authenticate using your own account: /login google-antigravity
+hideThinkingBlock: false
+enabledModels:
+  - google-antigravity/gemini-3.8-flash

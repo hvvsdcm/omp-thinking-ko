@@ -1,0 +1,22 @@
+{
+  "name": "omp-thinking-ko",
+  "version": "1.0.0",
+  "description": "Korean display translation for OMP thinking and assistant replies, using your own Gemini authentication.",
+  "type": "module",
+  "license": "MIT",
+  "author": "hvvsdcm",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hvvsdcm/omp-thinking-ko.git"
+  },
+  "homepage": "https://github.com/hvvsdcm/omp-thinking-ko#readme",
+  "bugs": "https://github.com/hvvsdcm/omp-thinking-ko/issues",
+  "keywords": ["omp", "oh-my-pi", "omp-plugin", "korean", "translation", "thinking"],
+  "files": ["thinking-ko.ts", "README.md", "LICENSE", "config.example.yml"],
+  "scripts": {
+    "test": "node --test thinking-ko.test.mjs"
+  },
+  "omp": {
+    "extensions": ["./thinking-ko.ts"]
+  }
+}
