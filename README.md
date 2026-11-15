@@ -1,10 +1,10 @@
 # omp-thinking-ko
 
-OMP에 표시되는 영어 생각과 답변을 한국어로 옮기는 비공식 확장입니다. Gemini를 번역기로 사용하고, 화면 표시만 바꿉니다. OMP 본체나 원래 메시지·thinking 서명은 수정하지 않습니다.
+OMP에 표시되는 영어 생각과 답변을 한국어로 옮기는 비공식 확장입니다. OpenAI GPT(`openai-codex/gpt-6-luna`)를 번역기로 사용하고, 화면 표시만 바꿉니다. OMP 본체나 원래 메시지·thinking 서명은 수정하지 않습니다.
 
-**English:** An unofficial [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi) extension that translates visible thinking and assistant replies into informal Korean. Bring your own OMP and Google Antigravity authentication. This repository does not provide credentials, a shared account, or a hosted translation service.
+**English:** An unofficial [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi) extension that translates visible thinking and assistant replies into informal Korean. Bring your own OMP and OpenAI Codex (ChatGPT) authentication. This repository does not provide credentials, a shared account, or a hosted translation service.
 
-> **설치 전 확인:** 생각과 최종 답변의 원문이 번역을 위해 Google Antigravity/Gemini로 전송됩니다. 원문에 코드·비밀값이 포함돼 있으면 함께 전송될 수 있습니다. 민감한 작업에는 사용하지 마세요. 각 사용자의 계정 한도·비용·서비스 약관이 적용됩니다.
+> **설치 전 확인:** 생각과 최종 답변의 원문이 번역을 위해 OpenAI(ChatGPT Codex)로 전송됩니다. 원문에 코드·비밀값이 포함돼 있으면 함께 전송될 수 있습니다. 민감한 작업에는 사용하지 마세요. 각 사용자의 계정 한도·비용·서비스 약관이 적용됩니다.
 
 ## 어떤 기능인가요?
 
@@ -26,8 +26,8 @@ OMP에 표시되는 영어 생각과 답변을 한국어로 옮기는 비공식 
 ## 준비물과 호환성
 
 1. [OMP](https://github.com/can1357/oh-my-pi)가 설치돼 있어야 합니다. 확인: `omp --version`.
-2. 본인의 **Google Antigravity 계정**으로 OMP에 로그인해야 합니다. OMP 안에서 `/login google-antigravity`를 실행합니다. 저장소에 토큰을 넣거나 개발자에게 전달하지 마세요.
-3. OMP에서 `google-antigravity/gemini-3.8-flash` 모델을 사용할 수 있어야 합니다. 접근 권한·모델 제공 여부는 계정과 제공자에 따라 달라집니다. 계정만 있으면 무조건 사용 가능하거나 무료라는 뜻은 아닙니다.
+2. 본인의 **ChatGPT 계정**으로 OMP에 로그인해야 합니다. OMP 안에서 `/login openai-codex`를 실행합니다. 저장소에 토큰을 넣거나 개발자에게 전달하지 마세요.
+3. OMP에서 `openai-codex/gpt-6-luna` 모델을 사용할 수 있어야 합니다. 접근 권한·모델 제공 여부는 계정과 제공자에 따라 달라집니다. 계정만 있으면 무조건 사용 가능하거나 무료라는 뜻은 아닙니다.
 
 이 릴리스의 기존 실사용 확인 환경은 **Windows + OMP 18.2.11**입니다. 자동 테스트는 Node.js 24에서 실행하며 Windows·Linux·macOS CI를 제공합니다. 다른 운영체제의 실제 TUI 표시와 다른 OMP 버전까지 보장하지는 않습니다.
 
@@ -61,15 +61,15 @@ else
 fi
 ```
 
-3. 기본 프로필의 `~/.omp/agent/config.yml`에 다음 설정을 **병합**합니다. 파일 전체를 예제로 덮어쓰지 마세요. `enabledModels`가 이미 있으면 기존 목록에 Gemini 항목만 추가합니다.
+3. 기본 프로필의 `~/.omp/agent/config.yml`에 다음 설정을 **병합**합니다. 파일 전체를 예제로 덮어쓰지 마세요. `enabledModels`가 이미 있으면 기존 목록에 GPT 항목만 추가합니다.
 
 ```yaml
 hideThinkingBlock: false
 enabledModels:
-  - google-antigravity/gemini-3.8-flash
+  - openai-codex/gpt-6-luna
 ```
 
-`config.example.yml`에도 같은 예제가 있습니다. `disabledProviders`에 `google-antigravity`가 있다면 해당 항목을 제거해야 합니다.
+`config.example.yml`에도 같은 예제가 있습니다. `disabledProviders`에 `openai-codex`가 있다면 해당 항목을 제거해야 합니다.
 
 4. OMP를 종료하고 다시 실행합니다. 새 thinking 블록이나 답변이 끝나면 잠시 뒤 한국어 표시로 바뀝니다. 번역 기록이 없는 과거 메시지는 자동으로 소급 번역하지 않습니다.
 

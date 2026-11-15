@@ -1,7 +1,7 @@
 {
   "name": "omp-thinking-ko",
   "version": "1.0.1",
-  "description": "Korean display translation for OMP thinking and assistant replies, using your own Gemini authentication.",
+  "description": "Korean display translation for OMP thinking and assistant replies, using your own OpenAI Codex (ChatGPT) authentication.",
   "type": "module",
   "license": "MIT",
   "author": "hvvsdcm",

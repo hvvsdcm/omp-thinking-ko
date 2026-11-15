@@ -1,4 +1,4 @@
-// thinking-ko: OMP 화면에 뜨는 thinking 블록과 답변(text 블록)을 Gemini(google-antigravity)로
+// thinking-ko: OMP 화면에 뜨는 thinking 블록과 답변(text 블록)을 GPT(openai-codex/gpt-6-luna)로
 // 번역해 원문 대신 그린다. 생각·답변 모두 반말·구어체(ㅆ→ㅅ)는 프롬프트로 맞추고 코드·마크다운을 보존한다.
 //
 // 표시 방식: OMP 확장 API에는 본문을 바꿔 그리는 훅이 없어서, 위젯 팩토리로 얻은 TUI 루트에서
@@ -18,8 +18,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 // ---- 설정 --------------------------------------------------------------------
-/** 번역 모델(속도 우선). config.yml enabledModels에 있어야 한다. */
-export const MODEL = "google-antigravity/gemini-3.8-flash";
+/** 번역 모델. GPT 중 가장 작은 Luna(실측 2026-11-15: 6-luna 중앙값 2.5초, 5.6-luna 3.5초). config.yml enabledModels에 있어야 한다. */
+export const MODEL = "openai-codex/gpt-6-luna";
 /** 켬/끔. 환경변수 THINKING_KO=0 으로도 끌 수 있다. */
 export const ENABLED = true;
 /**

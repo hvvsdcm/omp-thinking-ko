@@ -156,8 +156,8 @@ test("redact: 토큰류 가림", () => {
 	}
 	assert.match(out, /Bearer \[redacted\]/);
 	assert.equal(
-		redact("provider=google-antigravity model=gemini-3.8-flash"),
-		"provider=google-antigravity model=gemini-3.8-flash",
+		redact("provider=openai-codex model=gpt-6-luna"),
+		"provider=openai-codex model=gpt-6-luna",
 	);
 });
 

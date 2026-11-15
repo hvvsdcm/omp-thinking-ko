@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### 변경
+
+- 번역 모델을 `google-antigravity/gemini-3.8-flash`에서 `openai-codex/gpt-6-luna`로 바꿨습니다. `/login openai-codex`와 `enabledModels`의 `openai-codex/gpt-6-luna`가 필요합니다.
+- 실측(2026-11-15, 같은 생각 블록 6회): gpt-6-luna 응답 중앙값 약 2.5초.
+
 ## 1.0.1 — 2026-09-28
 
 ### 수정
